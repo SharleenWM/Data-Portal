@@ -6,33 +6,17 @@ const MainDashboard = () => {
   const navigate = useNavigate();
   const [data, setData] = useState({
     activeProjectsCount: 0,
-    departmentActivity: [
-      { name: "Finance", activityLevel: "High" },
-      { name: "IT", activityLevel: "Medium" },
-      { name: "Compliance", activityLevel: "Low" },
-    ],
+    departmentActivity: [],
     recentReports: [],
     keyMetrics: { totalUsers: 0, dataProcessed: "0TB", uptime: "0%" },
     complianceStatus: "",
     complianceDeadlines: [],
-    complianceGaps: [
-      "Missing DPA audit documentation",
-      "Incomplete staff training records",
-    ],
+    complianceGaps: [],
     complianceScore: 0,
     riskItems: [],
     riskSeverityDistribution: [],
-    riskTrend: [
-      { date: "2025-04-01", riskLevel: 5 },
-      { date: "2025-04-15", riskLevel: 6 },
-      { date: "2025-05-01", riskLevel: 4 },
-      { date: "2025-05-19", riskLevel: 3 },
-    ],
-    recentActivity: [
-      "User admin created Risk 'Data Breach' at 2025-05-18 14:30 EAT",
-      "Report 'Compliance Report - 2025-05-19' generated at 03:00 EAT",
-      "Project 'Budget 2025' updated by admin at 2025-05-18 10:15 EAT",
-    ],
+    riskTrend: [],
+    recentActivity: [],
     teamPerformance: {
       activeMembers: 0,
       tasksCompleted: 0,
@@ -41,59 +25,49 @@ const MainDashboard = () => {
   });
 
   useEffect(() => {
-    const fetchData = async () => {
+    const fetchDashboardSummary = async () => {
       try {
-        const [projectsRes, teamsRes, reportsRes, risksRes] = await Promise.all(
-          [
-            axios.get("http://localhost:8080/api/projects"),
-            axios.get("http://localhost:8080/api/teams"),
-            axios.get("http://localhost:8080/api/reports"),
-            axios.get("http://localhost:8080/api/risks"),
-          ]
+        const res = await axios.get(
+          `${import.meta.env.VITE_API_URL}/dashboard/summary`,
+          { withCredentials: true }
         );
+        const summary = res.data;
 
-        setData((prevData) => ({
-          ...prevData,
-          activeProjectsCount: projectsRes.data.length,
-          departmentActivity: prevData.departmentActivity, // Keep hardcoded
-          recentReports: reportsRes.data
-            .slice(0, 5)
-            .map((report) => `${report.name} - ${report.generatedDate}`),
+        setData({
+          activeProjectsCount: summary.activeProjectsCount,
+          departmentActivity: summary.departmentActivity,
+          recentReports: summary.recentReports,
           keyMetrics: {
-            totalUsers: 150,
-            dataProcessed: "2.5TB",
-            uptime: "99.9%",
+            totalUsers: summary.totalUsers,
+            dataProcessed: "2.5TB", // mock or extend backend
+            uptime: "99.9%", // mock or extend backend
           },
-          complianceStatus: "Compliant",
-          complianceDeadlines: ["DPA Audit - 2025-06-01"],
-          complianceGaps: prevData.complianceGaps, // Keep hardcoded
-          complianceScore: 88,
-          riskItems: risksRes.data.map((risk) => ({
-            name: risk.name,
-            severity: risk.severity,
-          })),
-          riskSeverityDistribution: risksRes.data.reduce((acc, risk) => {
-            const existing = acc.find(
-              (item) => item.severity === risk.severity
-            );
-            if (existing) existing.value += 1;
-            else acc.push({ severity: risk.severity, value: 1 });
-            return acc;
-          }, []),
-          riskTrend: prevData.riskTrend, // Keep hardcoded
-          recentActivity: prevData.recentActivity, // Keep hardcoded
-          teamPerformance: {
-            activeMembers: teamsRes.data?.activeMembers || 25,
-            tasksCompleted: teamsRes.data?.tasksCompleted || 120,
-            avgCompletionTime: teamsRes.data?.avgCompletionTime || "2.3 days",
-          },
-        }));
+          complianceStatus: summary.complianceStatus,
+          complianceDeadlines: summary.complianceDeadlines,
+          complianceGaps: summary.complianceGaps,
+          complianceScore: summary.complianceScore,
+          riskItems: summary.riskItems,
+          riskSeverityDistribution: summary.riskSeverityDistribution,
+          riskTrend: [
+            { date: "2025-04-01", riskLevel: 5 },
+            { date: "2025-04-15", riskLevel: 6 },
+            { date: "2025-05-01", riskLevel: 4 },
+            { date: "2025-05-19", riskLevel: 3 },
+          ],
+          recentActivity: summary.recentActivity,
+          teamPerformance: summary.teamPerformance,
+        });
       } catch (error) {
-        console.error("Error fetching data:", error);
+        console.error("Error fetching dashboard summary:", error);
       }
     };
-    fetchData();
+
+    fetchDashboardSummary();
   }, []);
+
+  useEffect(() => {
+    drawPieChart("risk-severity", data.riskSeverityDistribution);
+  }, [data.riskSeverityDistribution]);
 
   const drawPieChart = (canvasId, data) => {
     const canvas = document.getElementById(canvasId);
@@ -116,7 +90,7 @@ const MainDashboard = () => {
     data.forEach((slice) => {
       const sliceAngle = (slice.value / total) * 2 * Math.PI;
       ctx.beginPath();
-      ctx.fillStyle = colors[slice.severity];
+      ctx.fillStyle = colors[slice.severity] || "#999";
       ctx.moveTo(centerX, centerY);
       ctx.arc(centerX, centerY, radius, startAngle, startAngle + sliceAngle);
       ctx.closePath();
@@ -125,21 +99,9 @@ const MainDashboard = () => {
     });
   };
 
-  useEffect(() => {
-    drawPieChart("risk-severity", data.riskSeverityDistribution);
-  }, [data]);
-
-  const handleCreateProject = () => {
-    navigate("/create-project");
-  };
-
-  const handleViewRisks = () => {
-    navigate("/create-risk");
-  };
-
-  const handleViewDepartments = () => {
-    navigate("/departments");
-  };
+  const handleCreateProject = () => navigate("/create-project");
+  const handleViewRisks = () => navigate("/create-risk");
+  const handleViewDepartments = () => navigate("/departments");
 
   return (
     <div className="main-dashboard">
